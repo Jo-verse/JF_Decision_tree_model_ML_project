@@ -368,13 +368,21 @@ def scale_min_max_data_1(X_train_con_outliers, X_test_con_outliers, X_train_sin_
         print(f"Error en scale_min_max_data: {e}")
         return None, None, None, None
 
-def feature_selection(X_train_con_outliers_norm, X_train_sin_outliers_norm, X_test_con_outliers_norm, X_test_sin_outliers_norm, X_train_con_outliers_scal, X_train_sin_outliers_scal, X_test_con_outliers_scal, X_test_sin_outliers_scal, y_train, y_test, ruta_modelo = "../models/"):
+def feature_selection(X_train_con_outliers, X_test_con_outliers, X_train_sin_outliers, X_test_sin_outliers, X_train_con_outliers_norm, X_test_con_outliers_norm, X_train_sin_outliers_norm, X_test_sin_outliers_norm, X_train_con_outliers_scal, X_test_con_outliers_scal, X_train_sin_outliers_scal, X_test_sin_outliers_scal, y_train, y_test, target_column, ruta_modelo="../models/"):
     """7. Feature Selection."""
-    """ 7.1 Selección de características"""
     try:
         feature_selection_k = int(input("Ingrese el valor de k para la selección de características: "))
-        dataset_name = input("Ingrese el nombre del dataset para entrenar el modelo (X_train_con_outliers_norm, X_train_sin_outliers_norm, X_test_con_outliers_norm, X_test_sin_outliers_norm, X_train_con_outliers_scal, X_train_sin_outliers_scal, X_test_con_outliers_scal, X_test_sin_outliers_scal): ")
-        if dataset_name == "X_train_con_outliers_norm":
+        dataset_name = input("Ingrese el nombre del dataset para entrenar el modelo (X_train_con_outliers, X_train_sin_outliers, X_test_con_outliers, X_test_sin_outliers, X_train_con_outliers_norm, X_train_sin_outliers_norm, X_test_con_outliers_norm, X_test_sin_outliers_norm, X_train_con_outliers_scal, X_train_sin_outliers_scal, X_test_con_outliers_scal, X_test_sin_outliers_scal): ")
+        
+        if dataset_name == "X_train_con_outliers":
+            feature_selection_dataset = X_train_con_outliers
+        elif dataset_name == "X_train_sin_outliers":
+            feature_selection_dataset = X_train_sin_outliers
+        elif dataset_name == "X_test_con_outliers":
+            feature_selection_dataset = X_test_con_outliers
+        elif dataset_name == "X_test_sin_outliers":
+            feature_selection_dataset = X_test_sin_outliers
+        elif dataset_name == "X_train_con_outliers_norm":
             feature_selection_dataset = X_train_con_outliers_norm
         elif dataset_name == "X_train_sin_outliers_norm":
             feature_selection_dataset = X_train_sin_outliers_norm
@@ -395,11 +403,27 @@ def feature_selection(X_train_con_outliers_norm, X_train_sin_outliers_norm, X_te
     except ValueError as e:
         print(f"Error: {e}")
         return None, None
+
     modelo_seleccion = SelectKBest(f_classif, k=feature_selection_k)
     modelo_seleccion.fit(feature_selection_dataset, y_train)
     ix = modelo_seleccion.get_support()
+    
     x_train_sel = pd.DataFrame(modelo_seleccion.transform(feature_selection_dataset), columns=feature_selection_dataset.columns.values[ix])
-    x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_sin_outliers_scal), columns=X_test_sin_outliers_scal.columns.values[ix])
+    
+    # Seleccionamos el test dataset a usar dependiendo del dataset de entrenamiento.
+    if dataset_name == "X_train_con_outliers":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_con_outliers), columns=X_test_con_outliers.columns.values[ix])
+    elif dataset_name == "X_train_sin_outliers":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_sin_outliers), columns=X_test_sin_outliers.columns.values[ix])
+    elif dataset_name == "X_train_con_outliers_norm":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_con_outliers_norm), columns=X_test_con_outliers_norm.columns.values[ix])
+    elif dataset_name == "X_train_sin_outliers_norm":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_sin_outliers_norm), columns=X_test_sin_outliers_norm.columns.values[ix])
+    elif dataset_name == "X_train_con_outliers_scal":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_con_outliers_scal), columns=X_test_con_outliers_scal.columns.values[ix])
+    elif dataset_name == "X_train_sin_outliers_scal":
+        x_test_sel = pd.DataFrame(modelo_seleccion.transform(X_test_sin_outliers_scal), columns=X_test_sin_outliers_scal.columns.values[ix])
+    
     x_train_sel[target_column] = list(y_train)
     x_test_sel[target_column] = list(y_test)
     ruta_json = os.path.join("../data/processed/Json", f"featureselection_k_{feature_selection_k}.json")
@@ -408,5 +432,7 @@ def feature_selection(X_train_con_outliers_norm, X_train_sin_outliers_norm, X_te
         json.dump(list(x_train_sel.columns), f)
     x_train_sel.to_csv(os.path.join(ruta_modelo, "x_train_sel.csv"), index=False)
     x_test_sel.to_csv(os.path.join(ruta_modelo, "x_test_sel.csv"), index=False)
+    x_train_sel.to_excel(os.path.join(ruta_modelo, "x_train_sel.xlsx"), index=False) # Guarda x_train_sel en XLSX
+    x_test_sel.to_excel(os.path.join(ruta_modelo, "x_test_sel.xlsx"), index=False) # Guarda x_test_sel en XLSX
     print(f"Características seleccionadas: {list(x_train_sel.columns)}")
     return x_train_sel, x_test_sel
